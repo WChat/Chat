@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Выбор диалогов</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            width: 90%;
+            max-width: 600px;
+            background: #fff;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            border-radius: 8px;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        #dialogs {
+            border: 1px solid #ccc;
+            height: 400px;
+            overflow-y: scroll;
+            margin-bottom: 10px;
+            padding: 10px;
+            border-radius: 5px;
+            background-color: #fff;
+        }
+        .dialog {
+            border-bottom: 1px solid #eee;
+            padding: 10px;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .dialog:hover {
+            background-color: #f0f0f0;
+        }
+        .dialog img {
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            margin-right: 10px;
+        }
+        .dialog-info {
+            flex-grow: 1;
+        }
+        .dialog-info strong {
+            font-size: 16px;
+            color: #333;
+        }
+        .dialog-info span {
+            display: block;
+            font-size: 14px;
+            color: #777;
+        }
+        button {
+            margin: 5px;
+            padding: 10px 15px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            background-color: #007bff;
+            color: #fff;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Выбор диалогов</h1>
+        <button id="loadDialogsButton" style="display: none;">Загрузить диалоги</button>
+        
+        <button id="search">🔍 Поиск</button>
+        <button id="settings">⚙️ Настройки</button>
+        <button id="autoRefreshButton">Автообновление: Включить</button>
+        <div id="dialogs"></div>
+    </div>
+
+    <script>
+        const apiUrl = 'https://api.dkon.app/api/v3/method/dialogs.get';
+        const clientId = 1302;
+        const accountId = localStorage.getItem('accountId');
+        const accessToken = localStorage.getItem('accessToken');
+        const defaultPhotoUrl = 'https://res.dkon.app/img/profile_default_photo.png';
+        let autoRefreshInterval;
+        let lastItemId = 0;
+        let loading = false;
+
+        async function loadDialogs(itemId = 0) {
+            if (loading) return;
+            loading = true;
+            try {
+                const formData = new FormData();
+                formData.append('clientId', clientId);
+                formData.append('accountId', accountId);
+                formData.append('accessToken', accessToken);
+                if (itemId) {
+                    formData.append('itemId', itemId);
+                }
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                if (!response.ok) {
+                    throw new Error('Network response was not ok: ' + response.statusText);
+                }
+
+                const data = await response.json();
+
+                if (data.error) {
+                    console.error('Ошибка при загрузке диалогов:', data.error_code);
+                    return;
+                }
+
+                const dialogsDiv = document.getElementById('dialogs');
+                if (itemId === 0) {
+                    dialogsDiv.innerHTML = '';
+                }
+
+                data.chats.sort((a, b) => b.lastMessageCreateAt - a.lastMessageCreateAt);
+
+                data.chats.forEach(chat => {
+                    const photoUrl = chat.withUserPhotoUrl || defaultPhotoUrl;
+                    const dialogDiv = document.createElement('div');
+                    dialogDiv.className = 'dialog';
+                    dialogDiv.innerHTML = `
+                        <img src="${photoUrl}" alt="${chat.withUserFullname}">
+                        <div class="dialog-info">
+                            <strong>${chat.withUserFullname} (${chat.withUserUsername})</strong><br>
+                            <span>${chat.lastMessage}</span><br>
+                            <span>${chat.lastMessageAgo}</span>
+                        </div>
+                    `;
+                    dialogDiv.addEventListener('click', function() {
+                        window.location.href = `chat.html?profileId=${chat.withUserId}&chatId=${chat.id}`;
+                    });
+                    dialogsDiv.appendChild(dialogDiv);
+                });
+
+                if (data.chats.length > 0) {
+                    lastItemId = data.chats[data.chats.length - 1].id;
+                }
+            } catch (error) {
+                console.error('Ошибка при загрузке диалогов:', error);
+            }
+            loading = false;
+        }
+
+        document.getElementById('loadDialogsButton').addEventListener('click', () => loadDialogs(0));
+        
+        document.getElementById('search').addEventListener('click', () => {
+        //dialogDiv.addEventListener('click', function() {
+                        window.location.href = `search.html`;
+                 //   });
+        });    
+        
+                document.getElementById('settings').addEventListener('click', () => {
+                        window.location.href = `settings.html`;
+                
+        });
+
+        document.getElementById('autoRefreshButton').addEventListener('click', () => {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+                autoRefreshInterval = null;
+                document.getElementById('autoRefreshButton').textContent = 'Автообновление: Включить';
+            } else {
+                autoRefreshInterval = setInterval(() => loadDialogs(0), 3000);
+                document.getElementById('autoRefreshButton').textContent = 'Автообновление: Выключить';
+            }
+        });
+
+        document.getElementById('dialogs').addEventListener('scroll', function() {
+            const dialogsDiv = document.getElementById('dialogs');
+            if (dialogsDiv.scrollTop + dialogsDiv.clientHeight >= dialogsDiv.scrollHeight) {
+                loadDialogs(lastItemId);
+            }
+        });
+
+        document.addEventListener("DOMContentLoaded", function() {
+            loadDialogs(0);
+        });
+    </script>
+</body>
+</html>
