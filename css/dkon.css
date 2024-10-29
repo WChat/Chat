@@ -1,0 +1,10 @@
+@font-face {
+    font-family: 'Wooper';
+    src: url('../dkon/Wooper.ttf') format('truetype');
+}
+
+ h1 {
+    font-family: 'Wooper', sans-serif; 
+    font-size: 70px; 
+    color: white;
+}
